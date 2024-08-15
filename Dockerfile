@@ -4,8 +4,6 @@ FROM python:3.9-slim
 # Set the working directory in the container
 WORKDIR /app
 
-RUN pip install --upgrade meson
-
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -13,7 +11,19 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     unzip \
+    gcc \
+    g++ \
     pkg-config \
+    libssl-dev \
+    libyaml-dev \
+    python3-yaml \
+    python3-ply \
+    python3-jinja2 \
+    libpython3-dev \
+    pybind11-dev \  
+    libyaml-dev \
+    libdw-dev \
+    libunwind-dev \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
@@ -29,23 +39,18 @@ RUN apt-get update && apt-get install -y \
     libhdf5-dev \
     libhdf5-serial-dev \
     libhdf5-103 \
-    libqtgui4 \
-    libqt4-test \
-    python3-pyqt5 \
+    python3 \
+    python3-pip \
+    python3-setuptools \
+    python3-wheel \
+    ninja-build \
     libcanberra-gtk-module \
     libcanberra-gtk3-module \
     && apt-get clean
 
-# Install OpenCV from source
-RUN git clone https://github.com/opencv/opencv.git && \
-    git clone https://github.com/opencv/opencv_contrib.git && \
-    cd opencv && \
-    mkdir build && \
-    cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr/local -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules .. && \
-    make -j$(nproc) && \
-    make install && \
-    ldconfig
+
+#RUN pip install meson
+RUN pip install --no-cache-dir meson pybind11 jinja2 pyyaml ply
 
 # Install libcamera from source
 RUN git clone https://git.libcamera.org/libcamera/libcamera.git && \
@@ -54,8 +59,31 @@ RUN git clone https://git.libcamera.org/libcamera/libcamera.git && \
     ninja -C build && \
     ninja -C build install
 
+
+# Install OpenCV from source
+RUN git clone https://github.com/opencv/opencv.git && \
+    git clone https://github.com/opencv/opencv_contrib.git && \
+    cd opencv && \
+    mkdir build && \
+    cd build && \
+    cmake \
+     -D CMAKE_BUILD_TYPE=Release \
+     -D OPENCV_GENERATE_PKGCONFIG=YES \
+     -D CMAKE_INSTALL_PREFIX=/usr/local \
+     -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules .. && \
+#     -D WITH_FFMPEG=YES \
+#     -D WITH_LIBCAMERA=ON \
+#     -D WITH_GSTREAMER=ON \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+RUN opencv_version && \
+    pkg-config --modversion opencv4
+
 # Copy the current directory contents into the container at /app
-COPY . /app
+COPY libcamera_opencv_example.cpp /app/libcamera_opencv_example.cpp
 
 # Run the application
-CMD ["python", "your_script.py"]
+RUN g++ -std=c++17 libcamera_opencv_example.cpp -o libcamera_opencv_example $(pkg-config --cflags --libs opencv4 libcamera)
+
